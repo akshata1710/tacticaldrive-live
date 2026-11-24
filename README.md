@@ -11,7 +11,10 @@ A Python prototype of the perception half of an ADAS behavior-planning stack. Si
 | Recall vs. ground truth | **99.4%** (636 / 640) |
 | False positives reaching output | **0** |
 | ID switches | **0** |
-| Position RMSE | **0.28 m** |
+| Position RMSE | **0.34 m** |
+| Critical scenarios flagged (TTC < 2 s) | **19 frames**: cut-in-and-brake, min TTC 1.05 s |
+
+The episode includes a **cut-in-and-brake** event: agent 2 overtakes, cuts into the ego lane between t=2 s and t=4 s, then brakes from 27 to 19 m/s. Scenario mining flags it from tracker output alone, 11.5 m ahead with TTC under 2 s. The run is open-loop (the ego doesn't react yet; that's the planner phase), so the flagged window is exactly the case a planner would need to handle.
 
 Reproduce with `PYTHONPATH=. python3 scripts/eval_tracking.py`. The output is deterministic for a given seed.
 

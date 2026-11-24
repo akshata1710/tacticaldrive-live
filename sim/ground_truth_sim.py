@@ -39,10 +39,15 @@ class AgentState:
         return asdict(self)
 
 
+# Cut-in-and-brake scenario for agent 2: start x (m), brake start (s), decel (m/s^2), floor speed (m/s).
+# Tuned so the default episode produces one clear near-miss (min TTC ~1 s) for scenario mining.
+BRAKE_X0, BRAKE_T, BRAKE_DECEL, BRAKE_MIN = 10.0, 4.5, 4.0, 19.0
+
+
 class KinematicAgent:
     """Constant-velocity-with-optional-lateral-maneuver agent."""
 
-    def __init__(self, agent_id, x, y, speed, lateral_maneuver=None):
+    def __init__(self, agent_id, x, y, speed, lateral_maneuver=None, braking=None):
         self.agent_id = agent_id
         self.x = x
         self.y = y
@@ -51,6 +56,8 @@ class KinematicAgent:
         self.heading = 0.0
         # lateral_maneuver: (t_start, t_end, target_y) -- a lane change window
         self.lateral_maneuver = lateral_maneuver
+        # braking: (t_start, decel_mps2, min_speed) -- longitudinal braking event
+        self.braking = braking
 
     def step(self, t, dt):
         if self.lateral_maneuver:
@@ -65,6 +72,10 @@ class KinematicAgent:
             elif t > t1:
                 self.vy = 0.0
                 self.heading = 0.0
+        if self.braking:
+            t_brake, decel, min_speed = self.braking
+            if t >= t_brake and self.vx > min_speed:
+                self.vx = max(min_speed, self.vx - decel * dt)
         self.x += self.vx * dt
 
     def state(self, t) -> AgentState:
@@ -83,14 +94,16 @@ class GroundTruthSimNode:
         self.t = 0.0
         rng = np.random.default_rng(seed)
 
-        # ego + 4 agents; agent 2 performs a cut-in in front of ego between t=2s and t=4s
+        # ego + 4 agents. Agent 2 overtakes, cuts in front of ego between t=2s and t=4s,
+        # then brakes hard: the classic cut-in-and-brake case that scenario mining should flag.
         self.agents = [
             KinematicAgent(agent_id=0, x=0.0,  y=0.0, speed=25.0),                     # ego
-            KinematicAgent(agent_id=1, x=20.0, y=0.0, speed=24.0),                     # lead, same lane
-            KinematicAgent(agent_id=2, x=15.0, y=3.5, speed=27.0,
-                            lateral_maneuver=(2.0, 4.0, 0.0)),                          # cut-in from adjacent lane
+            KinematicAgent(agent_id=1, x=45.0, y=0.0, speed=24.0),                     # lead, same lane
+            KinematicAgent(agent_id=2, x=BRAKE_X0, y=3.5, speed=27.0,
+                            lateral_maneuver=(2.0, 4.0, 0.0),
+                            braking=(BRAKE_T, BRAKE_DECEL, BRAKE_MIN)),                 # cut-in + brake
             KinematicAgent(agent_id=3, x=-10.0, y=-3.5, speed=23.0),                    # trailing, other lane
-            KinematicAgent(agent_id=4, x=40.0, y=0.0, speed=26.0),                      # far lead
+            KinematicAgent(agent_id=4, x=70.0, y=0.0, speed=26.0),                      # far lead
         ]
 
         self.topic = bus.get_topic(
