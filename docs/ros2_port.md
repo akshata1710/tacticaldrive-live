@@ -1,8 +1,7 @@
 # Porting `topic_bus.py` to real ROS2 (rclpy)
 
 This project's `bus/topic_bus.py` deliberately mirrors ROS2's node/topic/QoS
-model so the architecture ports with minimal rewrite. This doc is the mapping
-you'd walk an interviewer through.
+model so the architecture ports with minimal rewrite. This doc is that mapping.
 
 ## Concept mapping
 
@@ -45,8 +44,7 @@ class PerceptionNode(Node):
 **The tracker logic itself (`SensorNoiseModel`, `Track`, `MultiObjectTracker`)
 does not change at all** -- it's pure Python/numpy with no bus dependency.
 Only the node's `__init__` and I/O plumbing change. This separation
-(business logic vs. transport) is itself a software-design point worth
-making in the interview: the Kalman/Hungarian tracking core is unit-testable
+(business logic vs. transport) is itself a deliberate design choice: the Kalman/Hungarian tracking core is unit-testable
 in isolation from ROS2 entirely, which is exactly how you'd want it
 structured for CI (you can't easily run `colcon test` in most CI runners
 without a full ROS2 image, but you can always `pytest` the tracker).
@@ -69,4 +67,4 @@ hand-wavy "it's fast enough" claim.
 4. Copy `SensorNoiseModel` / `Track` / `MultiObjectTracker` into the new
    package unchanged; rewrite only `PerceptionNode.__init__` per the mapping above
 5. `ros2 topic hz /perception/tracked_objects` to verify real publish rate
-   under load -- this is the live demo you can show in an interview
+   under load
